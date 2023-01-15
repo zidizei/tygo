@@ -35,6 +35,9 @@ type PackageConfig struct {
 
 	// FallbackType defines the Typescript type used as a fallback for unknown Go types.
 	FallbackType string `yaml:"fallback_type"`
+
+	// OmitType defines the Go type that marks omitted fields on structs.
+	OmitType string `yaml:"omit_type"`
 }
 
 type Config struct {

@@ -83,6 +83,8 @@ func (g *PackageGenerator) writeTypeSpec(s *strings.Builder, ts *ast.TypeSpec, g
 			g.writeTypeParamsFields(s, ts.TypeParams.List)
 		}
 
+		g.writeEmbeddedTypes(s, st.Fields.List)
+
 		s.WriteString(" {\n")
 		g.writeStructFields(s, st.Fields.List, 0)
 		s.WriteString("}")

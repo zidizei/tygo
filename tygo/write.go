@@ -131,6 +131,97 @@ func (g *PackageGenerator) writeType(s *strings.Builder, t ast.Expr, depth int, 
 	}
 }
 
+func (g *PackageGenerator) writeEmbeddedTypes(s *strings.Builder, fields []*ast.Field) {
+	omittedFields := make([]string, 0)
+	embeddedFields := make([]string, 0)
+	for _, f := range fields {
+		var fieldName string
+		if len(f.Names) != 0 && f.Names[0] != nil && len(f.Names[0].Name) != 0 {
+			fieldName = f.Names[0].Name
+		}
+
+		if g.conf.OmitType == fmt.Sprintf("%v", f.Type) {
+			tags, err := structtag.Parse(f.Tag.Value[1 : len(f.Tag.Value)-1])
+			if err != nil {
+				panic(err)
+			}
+
+			var name string
+			jsonTag, err := tags.Get("json")
+			if err == nil {
+				name = jsonTag.Name
+			}
+
+			if len(name) == 0 || name == "-" {
+				name = fieldName
+			}
+
+			omittedFields = append(omittedFields, name)
+			continue
+		}
+
+		if fieldName != "" {
+			continue
+		}
+
+		var longType string
+		switch t := f.Type.(type) {
+		case *ast.StarExpr:
+			if selector, ok := t.X.(*ast.SelectorExpr); ok {
+				longType = fmt.Sprintf("%s.%s", selector.X, selector.Sel)
+			} else {
+				embeddedFields = append(embeddedFields, fmt.Sprintf("%s", t.X))
+			}
+		case *ast.SelectorExpr:
+			longType = fmt.Sprintf("%s.%s", t.X, t.Sel)
+		}
+
+		mappedTsType, ok := g.conf.TypeMappings[longType]
+		if ok {
+			embeddedFields = append(embeddedFields, mappedTsType)
+		} else if longType != "" {
+			s.WriteString(" /* ")
+			s.WriteString(longType)
+			s.WriteString(" */")
+		}
+	}
+
+	hasOmittedFields := len(omittedFields) > 0
+	hasEmbeddedFields := len(embeddedFields) > 0
+
+	if !hasEmbeddedFields {
+		return
+	}
+
+	s.WriteString(" extends ")
+
+	embeddedFieldsSeparator := ", "
+	if hasOmittedFields {
+		embeddedFieldsSeparator = " & "
+		s.WriteString("Omit<")
+	}
+
+	for i, f := range embeddedFields {
+		s.WriteString(f)
+
+		if i != len(embeddedFields)-1 {
+			s.WriteString(embeddedFieldsSeparator)
+		}
+	}
+
+	if hasOmittedFields {
+		s.WriteString(", ")
+		for i, o := range omittedFields {
+			s.WriteString(fmt.Sprintf("\"%s\"", o))
+
+			if i != len(omittedFields)-1 {
+				s.WriteString(" | ")
+			}
+		}
+		s.WriteByte('>')
+	}
+}
+
 func (g *PackageGenerator) writeTypeParamsFields(s *strings.Builder, fields []*ast.Field) {
 	s.WriteByte('<')
 	for i, f := range fields {
@@ -180,6 +271,10 @@ func (g *PackageGenerator) writeStructFields(s *strings.Builder, fields []*ast.F
 			fieldName = f.Names[0].Name
 		}
 		if len(fieldName) == 0 || 'A' > fieldName[0] || fieldName[0] > 'Z' {
+			continue
+		}
+
+		if g.conf.OmitType == fmt.Sprintf("%s", f.Type) {
 			continue
 		}
 
