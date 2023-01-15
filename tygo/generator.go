@@ -39,6 +39,7 @@ func (g *Tygo) SetTypeMapping(goType string, tsType string) {
 
 func (g *Tygo) Generate() error {
 	pkgs, err := packages.Load(&packages.Config{
+		Dir:  g.conf.Dir,
 		Mode: packages.NeedSyntax | packages.NeedFiles,
 	}, g.conf.PackageNames()...)
 	if err != nil {

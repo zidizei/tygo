@@ -38,6 +38,8 @@ type PackageConfig struct {
 }
 
 type Config struct {
+	// Dir specifies the directory in which to look for packages. Leave empty to use the current directory.
+	Dir      string           `yaml:"dir"`
 	Packages []*PackageConfig `yaml:"packages"`
 }
 
